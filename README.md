@@ -3,13 +3,14 @@
 Reference values for the confluent hypergeometric function.
 
 
-## Usage
+## Usage ##
 
 To compute the reference values, run
 
     python compute_reference.py
 
-To create plots of function accuracy, run
+To change the locations at which reference values will be computed, edit
+`config.py`. To create plots of function accuracy, run
 
     python make_accuracy_plots.py hyp1f1
 
@@ -18,7 +19,7 @@ or,
     python make_accuracy_plots.py new_hyp1f1
 
 
-## Interpreting the plots
+## Interpreting the plots ##
 
 The plots show relative error:
 
