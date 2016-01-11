@@ -7,9 +7,9 @@ MAXPREC = 100000
 # a = 0 and b = 0 are included in addition to positive and negative values.
 LOWER = -8
 UPPER = 2
-PTS = 201
+PTS = 401
 
 # Range of the logarithm of z values.
 LOWER_Z = -4
 UPPER_Z = 3
-PTS_Z = 21
+PTS_Z = 31

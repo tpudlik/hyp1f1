@@ -7,7 +7,7 @@ from __future__ import division
 import numpy as np
 from numpy import pi
 from numpy.lib.scimath import sqrt
-from . import gamma, rgamma, jv
+from scipy.special import gamma, rgamma, jv
 
 import warnings
 
@@ -92,8 +92,8 @@ def hyp1f1_III(a, b, z):
         m = int(-a)
         term = 1
         res = 1
-        for i in xrange(1, m + 1):
-            term *= z*(a + i)/(i*(b + i))
+        for i in xrange(m):
+            term *= z*(a + i)/((i + 1)*(b + i))
             res += term
     # Use the (++) recurrence to get to case IA or IB.
     else:
@@ -292,6 +292,9 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     expect); this can be seen by the ratio test.
 
     """
+    if np.real(z) < 0:
+        return np.exp(z)*asymptotic_series(b - a, b, -z)
+
     # S1 is the first sum; the ith term is
     # (1 - a)_i * (b - a)_i * z^(-s) / i!
     # S2 is the second sum; the ith term is

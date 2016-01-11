@@ -3,11 +3,16 @@
 
 """
 
-import os
+import os, sys
 
 import numpy as np
 import scipy.special
 import matplotlib.pyplot as plt
+
+from hyp1f1.algorithms import hypergeometric
+
+# Path hack to allow relative import
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 def accuracy_plot(a, b, z, ref, func):
@@ -69,24 +74,53 @@ def make_plot(ref_file, func, fig_fname):
     plt.close(fig)
 
 
+def get_function(name):
+    """Return the function to use in computing estimates of hyp1f1."""
+
+    try:
+        func = getattr(scipy.special, args.func)
+    except:
+        func = getattr(hypergeometric, args.func)
+
+    if args.func == "new_hyp1f1":
+        # Eventually new_hyp1f1 will be vectorized, too---but not yet.
+        @np.vectorize
+        def f(a, b, z):
+            try:
+                return func(a, b, z)
+            except Exception as e:
+                msg = "Exception encountered at a = {}, b = {}, z = {}"
+                logging.error(msg.format(a, b, z))
+                logging.error(e)
+                return np.nan
+
+        return f
+    else:
+        return func
+
+
 if __name__ == '__main__':
-    import argparse, glob
+    import argparse, logging, glob
 
     parser = argparse.ArgumentParser()
     parser.add_argument("func",
                         help="The implementation of hyp1f1 to evaluate",
                         choices=["hyp1f1", "new_hyp1f1"])
     args = parser.parse_args()
+    func = get_function(args.func)
 
-    func = getattr(scipy.special, args.func)
-    if args.func == "new_hyp1f1":
-        # Eventually new_hyp1f1 will be vectorized, too---but not yet.
-        func = np.vectorize(func)
+    logging.basicConfig(filename='accuracy_plot.log',
+                        level=logging.DEBUG,
+                        format='%(asctime)s %(message)s',
+                        datefmt='%Y-%m-%d %H:%M')
+    logging.info("Beginning plot creation...")
 
     if not os.path.isdir("plots"):
         os.mkdir("plots")
-
     for data_fname in glob.glob("data/*.npz"):
         fig_fname = (args.func + "_" +
                      os.path.basename(data_fname).split('.')[0] + '.png')
         make_plot(data_fname, func, os.path.join("plots", fig_fname))
+        logging.info("Created plot from dataset {}".format(data_fname))
+
+    logging.info("Done!")
