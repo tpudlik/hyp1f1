@@ -9,10 +9,10 @@ import numpy as np
 import scipy.special
 import matplotlib.pyplot as plt
 
-from hyp1f1.algorithms import hypergeometric
-
 # Path hack to allow relative import
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from hyp1f1.algorithms import hypergeometric
 
 
 def accuracy_plot(a, b, z, ref, func):
@@ -77,12 +77,16 @@ def make_plot(ref_file, func, fig_fname):
 def get_function(name):
     """Return the function to use in computing estimates of hyp1f1."""
 
+    unvectorized = ("new_hyp1f1", "asymptotic_series", "taylor_series",
+                    "taylor_series_frac", "single_fraction", "bessel_series",
+                    "asymptotic_series_muller")
+
     try:
         func = getattr(scipy.special, args.func)
     except:
         func = getattr(hypergeometric, args.func)
 
-    if args.func == "new_hyp1f1":
+    if args.func in unvectorized:
         # Eventually new_hyp1f1 will be vectorized, too---but not yet.
         @np.vectorize
         def f(a, b, z):
@@ -105,7 +109,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("func",
                         help="The implementation of hyp1f1 to evaluate",
-                        choices=["hyp1f1", "new_hyp1f1"])
+                        choices=["hyp1f1", "new_hyp1f1", "taylor_series",
+                                 "taylor_series_frac", "single_fraction",
+                                 "bessel_series", "asymptotic_series",
+                                 "asymptotic_series_muller"])
     args = parser.parse_args()
     func = get_function(args.func)
 
