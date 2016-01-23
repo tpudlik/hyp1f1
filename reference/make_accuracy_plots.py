@@ -123,7 +123,10 @@ if __name__ == '__main__':
                                  "taylor_series_frac", "single_fraction",
                                  "bessel_series", "asymptotic_series",
                                  "asymptotic_series_muller",
-                                 "taylor_series_recur"])
+                                 "taylor_series_recur",
+                                 "asymptotic_series_full",
+                                 "taylor_series_ab_recur",
+                                 "rational_approximation"])
     args = parser.parse_args()
     func = get_function(args.func)
 

@@ -7,12 +7,12 @@ from __future__ import division
 import numpy as np
 from numpy import pi
 from numpy.lib.scimath import sqrt
-from . import gamma, rgamma, jv
+from scipy.special import gamma, rgamma, jv
 
 import warnings
 
 tol = 1.0e-15
-BIGZ = 30
+BIGZ = 340
 
 
 def new_hyp1f1(a, b, z):
@@ -52,7 +52,6 @@ def new_hyp1f1(a, b, z):
     if kummer:
         res *= np.exp(-z)
     return res
-
 
 def hyp1f1_IA(a, b, z):
     """Compute hyp1f1 in the case where a, b >= 0 and z >= 0."""
@@ -146,7 +145,7 @@ def b_backward_recurrence(a, b, z, w0, w1, N):
     return w1
 
 
-def b_forward_recurrence(a, b, z, w0, N, tol):
+def b_forward_recurrence(a, b, z, w0, N, tol, maxiter=500):
     """Use the recurrence relation (3.14) from _[pop] to compute hyp1f1(a,
     b + N, z) given w0 = hyp1f1(a, b, z).
 
@@ -169,7 +168,7 @@ def b_forward_recurrence(a, b, z, w0, N, tol):
             if testmin < curmin:
                 curmin = testmin
         else:
-            if testmin <= tol*curmin:
+            if testmin <= tol*curmin or n - N > maxiter:
                 break
         n += 1
     # Back substitution
@@ -196,7 +195,7 @@ def ab_backward_recurrence(a, b, z, w0, w1, N):
     return w1
 
 
-def ab_forward_recurrence(a, b, z, w0, N, tol):
+def ab_forward_recurrence(a, b, z, w0, N, tol, maxiter=500):
     """Use the recurrence relation (3.14) from _[pop] to compute hyp1f1(a
     + N, b + N, z) given w0 = hyp1f1(a, b, z).
 
@@ -217,7 +216,7 @@ def ab_forward_recurrence(a, b, z, w0, N, tol):
             if testmin < curmin:
                 curmin = testmin
         else:
-            if testmin <= tol*curmin:
+            if testmin <= tol*curmin or n - N > maxiter:
                 break
         n += 1
     # Back substitution
@@ -244,11 +243,70 @@ def taylor_series(a, b, z, maxiters=500, tol=tol):
             So = Sn
             Ao = An
             i += 1
-    if i > maxiters:
-        warnings.warn("Number of evaluations exceeded maxiters on "
-                      "a = {}, b = {}, z = {}.".format(a, b, z))
+    # if i > maxiters:
+    #     warnings.warn("Number of evaluations exceeded maxiters on "
+    #                   "a = {}, b = {}, z = {}.".format(a, b, z))
     return Sn
 
+
+def taylor_series_frac(a, b, z, maxiters=500, tol=tol):
+    """Compute hyp1f1 using the continued fraction implementation of the
+    Taylor series (Muller 2001, Method 1.C).
+
+    """
+    Aim2 = 1
+    Aim1 = 1 + z*a/b
+    for i in xrange(2, maxiters + 1):
+        r = (a + i - 1)/(i*(b + i - 1))
+        Ai = Aim1 + (Aim1 - Aim2)*r*z
+        if Aim1 != 0 and np.abs(Ai/Aim1) < tol:
+            break
+        Aim2 = Aim1
+        Aim1 = Ai
+    
+    return Ai
+
+def taylor_series_recur(a, b, z, maxiters=500, tol=tol):
+    """Compute hyp1f1 using the Taylor series, with recurrence to avoid
+    the dangerous regions where |a| > |b| and sign(a) = -sign(z).
+
+    """
+    if np.sign(z) == -np.sign(a) and np.abs(a) > np.abs(b):
+        if a < 0 and b > 0:
+            w0 = taylor_series(a, -int(a) + b + 1, z, maxiters, tol)
+            w1 = taylor_series(a, -int(a) + b, z, maxiters, tol)
+            return b_backward_recurrence(a, -int(a) + b, z, w0, w1, -int(a))
+        # elif a < 0  and b < 0:
+        #     w0 = taylor_series(a, int(a) + b, z, maxiters, tol)
+        #     return b_forward_recurrence(a, int(a) + b, z, w0, -int(a), tol)
+        elif a > 0 and b > 0:
+            w0 = taylor_series(a, int(a) + b + 1, z, maxiters, tol)
+            w1 = taylor_series(a, int(a) + b, z, maxiters, tol)
+            return b_backward_recurrence(a, int(a) + b, z, w0, w1, int(a))
+        # elif a > 0 and b < 0:
+        #     w0 = taylor_series(a, -int(a) + b, z, maxiters, tol)
+        #     return b_forward_recurrence(a, -int(a) + b, z, w0, int(a), tol)
+                
+    return taylor_series(a, b, z, maxiters, tol)
+
+def taylor_series_ab_recur(a, b, z, maxiters=500, tol=tol):
+    """Compute hyp1f1 using the Taylor series, with ab recurrence
+    used whenever sign(a) = - sign(z).  (This is too broad a range of use,
+    but I'd like to see if it helps at all.)
+
+    """
+    if np.abs(z) > 1 and np.sign(z) == -np.sign(a):
+        if a < 0:
+            N = int(np.abs(a)) - 1
+            w0 = taylor_series(a + N, b + N, z)
+            w1 = taylor_series(a + N - 1, b + N - 1, z)
+            return ab_backward_recurrence(a + N - 1, b + N - 1, z, w0, w1, N)
+        # elif a > 0:
+        #     N = int(np.abs(a)) - 1
+        #     w0 = taylor_series(a - N, b - N, z)
+        #     return ab_forward_recurrence(a - N, b - N, z, w0, N, 10**(-5))
+
+    return taylor_series(a, b, z, maxiters, tol)
 
 def single_fraction(a, b, z, maxiters=500, tol=tol):
     """Compute 1F1 by expanding the Taylor series as a single fraction and
@@ -278,9 +336,9 @@ def single_fraction(a, b, z, maxiters=500, tol=tol):
            np.abs((zetam - zetao) / zetao) < tol:
             break
         i += 1
-    if i > maxiters:
-        warnings.warn("Number of evaluations exceeded maxiters on "
-                      "a = {}, b = {}, z = {}.".format(a, b, z))
+    # if i > maxiters:
+    #     warnings.warn("Number of evaluations exceeded maxiters on "
+    #                   "a = {}, b = {}, z = {}.".format(a, b, z))
     return zetan
 
 
@@ -320,6 +378,76 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     return gamma(b)*(c1*S1 + c2*S2)
 
 
+def asymptotic_series_full(a, b, z, maxterms=200):
+    """Compute hyp1f1 using an asymptotic series. This uses DLMF 13.7.2
+    and DLMF 13.2.4. Note that the series is divergent (as one would
+    expect); this can be seen by the ratio test.
+
+    In this implementation, the asymptotic series is summed "to the hilt":
+    terms are added until they have no effect on the final result.
+
+    """
+    if np.real(z) < 0 and np.imag(z) == 0:
+        # The series is not valid on the negative real axis.
+        return np.nan
+
+    phi = np.angle(z)
+    if np.imag(z) == 0:
+        expfac = np.cos(pi*a)
+    elif phi > -0.5*pi and phi < 1.5*pi:
+        expfac = np.exp(1J*pi*a)
+    elif phi > -1.5*pi and phi <= -0.5*pi:
+        expfac = np.exp(-1J*pi*a)
+    else:
+        raise Exception("Shouldn't be able to get here!")
+
+    c1 = np.exp(z)*z**(a - b)*rgamma(a)
+    c2 = expfac*z**(-a)*rgamma(b - a)
+
+    # S1 is the first sum; the ith term is
+    # (1 - a)_i * (b - a)_i * z^(-s) / i!
+    # S2 is the second sum; the ith term is
+    # (a)_i * (a - b + 1)_i * (-z)^(-s) / i!
+    A1 = 1
+    S1 = A1
+    A2 = 1
+    S2 = A2
+    # Is 8 terms optimal? Not sure.
+    for i in range(1, maxterms + 1):
+        A1 = A1*(i - a)*(b - a + i - 1) / (z*i)
+        A2 = -A2*(a + i - 1)*(a - b + i) / (z*i)
+        current_sum = c1*S1 + c2*S2
+        if c1*(S1 + A1) + c2*(S2 + A2) == current_sum or not np.isfinite(current_sum):
+            break
+        S1 += A1
+        S2 += A2
+        
+
+    return gamma(b)*(c1*S1 + c2*S2)
+
+
+def asymptotic_series_muller(a, b, z, maxiters=500, tol=tol):
+    """The asymptotic series for real argument given by Muller (2001) as
+    Method 2.
+
+    """
+    A1 = 1
+    S1 = 1
+    if z > 0:
+        for i in xrange(1, 9):
+            A1 = A1*(b - a + i - 1)*(i - a) / (z*i)
+            S1 += A1
+        return np.exp(z)*gamma(b)*z**(a-b)*rgamma(a)*S1
+    elif z < 0:
+        for i in xrange(1, 9):
+            A1 = A1*(a - b + i)*(a + i - 1) / ((-z)*i)
+            S1 += A1
+        return gamma(b)*(-z)**a*rgamma(b - a)*S1
+    else:
+        # At z == 0 an asymptotic series makes no sense.
+        return taylor_series(a, b, z)
+
+
 def bessel_series(a, b, z, maxiters=500, tol=tol):
     """Compute hyp1f1 using a series of Bessel functions; see (3.20) in
     _[pop].
@@ -348,7 +476,62 @@ def bessel_series(a, b, z, maxiters=500, tol=tol):
         So = Sn
         Sn += An
         i += 1
-    if i > maxiters:
-        warnings.warn("Number of evaluations exceeded maxiters on "
-                      "a = {}, b = {}, z = {}.".format(a, b, z))
+    # if i > maxiters:
+    #     warnings.warn("Number of evaluations exceeded maxiters on "
+    #                   "a = {}, b = {}, z = {}.".format(a, b, z))
     return gamma(b)*np.exp(z/2)*2**(b - 1)*Sn
+
+def rational_approximation(a, b, z, maxiters=500, tol=tol):
+    """Compute hyp1f1 using the rational approximation of _[luke], as described
+    in _[muller].
+
+    This method only works for real a, b, and z.
+
+    """
+    if z < 0:
+        return np.exp(z)*rational_approximation(b - a, b, -z)
+
+    d = b - a
+    Q0 = 1
+    Q1 = 1 + z*(d + 1)/(2*b)
+    Q2 = 1 + z*(d + 2)/(2*(b + 1)) + z**2*(d + 1)*(d + 2)/(12*b*(b + 1))
+    P0 = 1
+    P1 = Q1 - z*d/b
+    P2 = Q2 - (z*d/b)*(1 + z*(d + 2)/(2*(b + 1))) + z**2*d*(d + 1)/(2*b*(b + 1))
+
+    def f1(i):
+        return (i - d - 2)/(2*(2*i - 3)*(i + b - 1))
+
+    def f2(i):
+        num = (i + d)*(i + d - 1)
+        den = 4*(2*i - 1)*(2*i - 3)*(i + b - 2)*(i + b - 1)
+        return num/den
+
+    def f3(i):
+        num = (i + d - 2)*(i + d - 1)*(i - d - 2)
+        den = 8*(2*i - 3)**2*(2*i - 5)*(i + b - 3)*(i + b - 2)*(i + b - 1)
+        return -num/den
+
+    def f4(i):
+        num = (i + d - 1)*(i - b - 1)
+        den = 2*(2*i - 3)*(i + b - 2)*(i + b - 1)
+        return -num/den
+
+    for i in xrange(3, maxiters):
+        Pi = (1 + f1(i)*z)*P2 + (f4(i) + f2(i)*z)*z*P1 + f3(i)*z**3*P0
+        Qi = (1 + f1(i)*z)*Q2 + (f4(i) + f2(i)*z)*z*Q1 + f3(i)*z**3*Q0
+        Mi = Pi/Qi
+        
+        if not np.isfinite(Mi) or (P1 != 0 and np.abs(Q2*Mi/(P2) - 1) < 10**(-15)):
+            return Mi*np.exp(z)
+
+        P0 = P1
+        P1 = P2
+        P2 = Pi
+        Q0 = Q1
+        Q1 = Q2
+        Q2 = Qi
+
+    # warnings.warn("Number of evaluations exceeded maxiters at "
+    #               "a = {}, b = {}, z = {}.".format(a, b, z))
+    return Mi*np.exp(z)
