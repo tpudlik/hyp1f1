@@ -6,13 +6,11 @@
 import os, sys
 
 import numpy as np
-import scipy.special
 import matplotlib.pyplot as plt
 
 # Path hack to allow relative import
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from hyp1f1.algorithms import hypergeometric
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from algorithms import hwrapper
 
 
 def accuracy_plot(a, b, z, ref, func):
@@ -86,33 +84,6 @@ def make_plot(ref_file, func, fig_fname):
     plt.close(fig)
 
 
-def get_function(name):
-    """Return the function to use in computing estimates of hyp1f1."""
-
-    vectorized = ("hyp1f1",)
-
-    try:
-        func = getattr(scipy.special, args.func)
-    except:
-        func = getattr(hypergeometric, args.func)
-
-    if args.func not in vectorized:
-        # Eventually new_hyp1f1 will be vectorized, too---but not yet.
-        @np.vectorize
-        def f(a, b, z):
-            try:
-                return func(a, b, z)
-            except Exception as e:
-                msg = "Exception encountered at a = {}, b = {}, z = {}"
-                logging.error(msg.format(a, b, z))
-                logging.error(e)
-                return np.nan
-
-        return f
-    else:
-        return func
-
-
 if __name__ == '__main__':
     import argparse, logging, glob
 
@@ -128,7 +99,7 @@ if __name__ == '__main__':
                                  "taylor_series_ab_recur",
                                  "rational_approximation"])
     args = parser.parse_args()
-    func = get_function(args.func)
+    func = hwrapper.get_function(args.func)
 
     logging.basicConfig(filename='accuracy_plot.log',
                         level=logging.DEBUG,
