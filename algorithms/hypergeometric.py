@@ -373,7 +373,12 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     else:
         raise Exception("Shouldn't be able to get here!")
 
-    c1 = np.exp(z)*z**(a - b)*rgamma(a)
+    if (a > 0 and z > 0) or (a < 0 and z < 0):
+        # rgamma is a small number when a > 0 and a large number
+        # when a < 0.  Multipling in this order makes overflow less likely.
+        c1 = (rgamma(a)*np.exp(z))*z**(a - b)
+    else:
+        c1 = (np.exp(z)*rgamma(a))*z**(a - b)
     c2 = expfac*z**(-a)*rgamma(b - a)
     return gamma(b)*(c1*S1 + c2*S2)
 
@@ -401,9 +406,15 @@ def asymptotic_series_full(a, b, z, maxterms=200):
     else:
         raise Exception("Shouldn't be able to get here!")
 
-    c1 = np.exp(z)*z**(a - b)*rgamma(a)
-    c2 = expfac*z**(-a)*rgamma(b - a)
+    if (a > 0 and z > 0) or (a < 0 and z < 0):
+        # rgamma is a small number when a > 0 and a large number
+        # when a < 0.  Multipling in this order makes overflow less likely.
+        c1 = (rgamma(a)*np.exp(z))*z**(a - b)
+    else:
+        c1 = (np.exp(z)*rgamma(a))*z**(a - b)
 
+    c2 = expfac*z**(-a)*rgamma(b - a)
+    
     # S1 is the first sum; the ith term is
     # (1 - a)_i * (b - a)_i * z^(-s) / i!
     # S2 is the second sum; the ith term is
@@ -412,7 +423,6 @@ def asymptotic_series_full(a, b, z, maxterms=200):
     S1 = A1
     A2 = 1
     S2 = A2
-    # Is 8 terms optimal? Not sure.
     for i in range(1, maxterms + 1):
         A1 = A1*(i - a)*(b - a + i - 1) / (z*i)
         A2 = -A2*(a + i - 1)*(a - b + i) / (z*i)
@@ -421,7 +431,6 @@ def asymptotic_series_full(a, b, z, maxterms=200):
             break
         S1 += A1
         S2 += A2
-        
 
     return gamma(b)*(c1*S1 + c2*S2)
 
