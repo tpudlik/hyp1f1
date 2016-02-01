@@ -7,11 +7,11 @@ import logging, os
 import mpmath
 import numpy as np
 
-from config import MAXPREC, LOWER, UPPER, PTS, LOWER_Z, UPPER_Z, PTS_Z
+from config import MAXPREC, UPPER, PTS, LOWER_Z, UPPER_Z, PTS_Z
 
 
-def reference_array(z, lower=-8, upper=3, pts=201):
-    values = pm_logspace(lower, upper, pts)
+def reference_array(z, upper=3, pts=201):
+    values = np.linspace(-10**upper, 10**upper, pts)
     a_array, b_array = np.meshgrid(values, values)
 
     ref = np.empty_like(a_array)
@@ -47,7 +47,7 @@ if __name__ == '__main__':
         os.mkdir("data")
 
     for idx, z in np.ndenumerate(pm_logspace(LOWER_Z, UPPER_Z, PTS_Z)):
-        a, b, ref = reference_array(z, LOWER, UPPER, PTS)
+        a, b, ref = reference_array(z, UPPER, PTS)
         logging.info("Computed values at z = {}".format(z))
         with open("data/reference_data_{:02}.npz".format(idx[0]), "wb") as f:
             np.savez(f, a=a, b=b, ref=ref, z=z)
