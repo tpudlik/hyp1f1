@@ -7,7 +7,7 @@ from __future__ import division
 import numpy as np
 from numpy import pi
 from numpy.lib.scimath import sqrt
-from scipy.special import gamma, rgamma, jv
+from scipy.special import gamma, rgamma, jv, gammaln
 
 import warnings
 
@@ -348,20 +348,9 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     expect); this can be seen by the ratio test.
 
     """
-    # S1 is the first sum; the ith term is
-    # (1 - a)_i * (b - a)_i * z^(-s) / i!
-    # S2 is the second sum; the ith term is
-    # (a)_i * (a - b + 1)_i * (-z)^(-s) / i!
-    A1 = 1
-    S1 = A1
-    A2 = 1
-    S2 = A2
-    # Is 8 terms optimal? Not sure.
-    for i in range(1, 9):
-        A1 = A1*(i - a)*(b - a + i - 1) / (z*i)
-        S1 += A1
-        A2 = -A2*(a + i - 1)*(a - b + i) / (z*i)
-        S2 += A2
+    if np.imag(z) == 0 and np.real(z) < 0:
+        # The series is not valid on the negative real axis.
+        return np.nan
 
     phi = np.angle(z)
     if np.imag(z) == 0:
@@ -373,14 +362,45 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     else:
         raise Exception("Shouldn't be able to get here!")
 
-    if (a > 0 and z > 0) or (a < 0 and z < 0):
-        # rgamma is a small number when a > 0 and a large number
-        # when a < 0.  Multipling in this order makes overflow less likely.
-        c1 = (rgamma(a)*np.exp(z))*z**(a - b)
+    if np.real(a) and np.real(b) and np.real(z) and (a < 0 or b < 0):
+        # gammaln and log will not give correct results for real negative
+        # arguments, so the args must be cast to complex.
+        c1 = np.real(np.exp(gammaln(b+0j) - gammaln(a+0j) + z))*z**(a - b)
     else:
-        c1 = (np.exp(z)*rgamma(a))*z**(a - b)
-    c2 = expfac*z**(-a)*rgamma(b - a)
-    return gamma(b)*(c1*S1 + c2*S2)
+        c1 = np.exp(gammaln(b) - gammaln(a) + z)*z**(a - b)
+    if np.real(a) and np.real(b) and np.real(z) and (b - a < 0 or b < 0):
+        c2 = np.real(np.exp(gammaln(b + 0j) - gammaln(b - a + 0j))*z**(-a))
+    else:
+        c2 = np.exp(gammaln(b) - gammaln(b - a))*z**(-a)
+
+    # S1 is the first sum; the ith term is
+    # (1 - a)_i * (b - a)_i * z^(-s) / i!
+    # S2 is the second sum; the ith term is
+    # (a)_i * (a - b + 1)_i * (-z)^(-s) / i!
+    largest_term = 0
+    previous_term = np.inf
+    A1 = 1
+    S1 = A1
+    A2 = 1
+    S2 = A2
+    for i in range(1, maxiters + 1):
+        A1 = A1*(i - a)*(b - a + i - 1) / (z*i)
+        A2 = -A2*(a + i - 1)*(a - b + i) / (z*i)
+        current_term = np.abs(c1*A1 + c2*A2)
+        if current_term > largest_term:
+            largest_term = current_term
+        elif current_term > previous_term:
+            # We've passed the smallest term of the series: adding more will
+            # only harm precision
+            break
+        current_sum = c1*S1 + c2*S2
+        if c1*(S1 + A1) + c2*(S2 + A2) == current_sum or not np.isfinite(current_sum):
+            break
+        S1 += A1
+        S2 += A2
+        previous_term = current_term
+
+    return c1*S1 + c2*S2
 
 
 def asymptotic_series_full(a, b, z, maxterms=200):
