@@ -15,8 +15,8 @@ RED = (202.0/255, 0, 32.0/255)
 GREEN = (0, 109.0/255, 44.0/255)
 BLUE = (5.0/255, 113.0/255, 176.0/255)
 
-def make_plot(a, b, z, title):
-    approx, terms = optimal_terms.asymptotic_series(a, b, z)
+def make_plot(a, b, z, title, maxterms):
+    approx, terms = optimal_terms.asymptotic_series(a, b, z, maxterms)
     ref = np.float64(mpmath.hyp1f1(a, b, z))
 
     cd = correct_digits(approx, ref)
@@ -55,6 +55,9 @@ if __name__ == '__main__':
     parser.add_argument("b", help="The `b` parameter.", type=float)
     parser.add_argument("z", help="The argument.", type=float)
     parser.add_argument("title", help="The title of the plot.")
+    parser.add_argument("--maxterms", help="The number of terms to sum.",
+                        type=int, default=100)
     args = parser.parse_args()
 
-    make_plot(args.a, args.b, args.z, args.title)
+
+    make_plot(args.a, args.b, args.z, args.title, args.maxterms)
