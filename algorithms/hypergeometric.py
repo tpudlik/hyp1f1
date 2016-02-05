@@ -420,8 +420,9 @@ def paris_series(a, b, z, maxiters=200):
     """The exponentially improved asymptotic expansion along the negative real
     axis developed by Paris (2013).
 
-    At the moment, only the algebraic (i.e., not-improved) expansion is
-    implemented.
+    The exponentially improved expansion does not appear to improve the
+    performance of the series in general, perhaps as a result of an
+    implementation bug, so it has been commented out.
 
     """
     x = -z
@@ -434,7 +435,8 @@ def paris_series(a, b, z, maxiters=200):
     theta = a - b
     if np.isreal(theta) and theta == np.floor(theta):
         if theta >= 0:
-            # The hypergeometric function is a polynomial in n
+            # The hypergeometric function is a polynomial in n, there are
+            # no exponentially small corrections
             if np.real(a) and np.real(b) and (b < 0 or a < 0):
                 c = np.exp(-x + gammaln(a + 0j) - gammaln(b + 0j))
                 c = np.real(c)
@@ -457,10 +459,10 @@ def paris_series(a, b, z, maxiters=200):
             S1 = 1
             n = int(-theta)
             for i in xrange(n):
-                A1 = A1*((a + i)*(1 + theta + k)/((k + 1)*x))
+                A1 = A1*((a + i)*(1 + theta + i)/((i + 1)*x))
                 S1 += A1
 
-            return c*S1 + paris_exponential_series(a, b, z, i, maxiters)
+            return c*S1  # + paris_exponential_series(a, b, z, i, maxiters)
 
     A1 = 1
     S1 = 1
@@ -476,7 +478,8 @@ def paris_series(a, b, z, maxiters=200):
         S1 += A1
         previous_term = current_term
 
-    return c*S1 + paris_exponential_series(a, b, z, i, maxiters)
+    return c*S1  # + paris_exponential_series(a, b, z, i, maxiters)
+
 
 def paris_exponential_series(a, b, z, i, maxiters):
     """The exponentially small addition to the asymptotic expansion on the
@@ -484,13 +487,20 @@ def paris_exponential_series(a, b, z, i, maxiters):
 
     The argument `i` is the truncation index for the original series.
 
+    This function does not reproduce all of the significant figures of Table 2
+    in Paris (2013), suggesting a small implementation bug.
+
+    Possibly fewer than all 5 terms should be summed for optimal peformance.
+    (There are of course infinitely many terms, but the first 5 are the only
+    ones for which the polynomial coefficients were included in the paper.)
+
     """
     M = 5
     theta = a - b
     x = -z
     if i < maxiters:
         # The optimal truncation term has been determined.
-        v = a + i + theta + 1
+        v = a + i + theta
     else:
         # We don't know how many terms are optimal exactly (it's more than the
         # number of terms summed), so we'll use an approximation.
@@ -507,13 +517,13 @@ def paris_exponential_series(a, b, z, i, maxiters):
         second_sum += (-1)**idx * B * x**(-idx)
 
     if np.real(a) and np.real(b) and (b < 0 or a < 0):
-        c = np.exp(gammaln(b + 0j) - gammaln(a + 0j))
+        c = np.exp(gammaln(b + 0j) - gammaln(a + 0j) - x + theta*np.log(x))
         c = np.real(c)
     else:
-        c = np.exp(gammaln(b) - gammaln(a))
+        c = np.exp(gammaln(b) - gammaln(a) - x + theta*np.log(x))
 
-    return c*x**theta*np.exp(-x)*(np.cos(np.pi*theta)*first_sum
-                                  - 2*np.sin(np.pi*theta)/np.sqrt(2*np.pi*x)*second_sum)
+    return c*(np.cos(np.pi*theta)*first_sum
+              - 2*np.sin(np.pi*theta)/np.sqrt(2*np.pi*x)*second_sum)
 
 
 def asymptotic_series_full(a, b, z, maxterms=200):
