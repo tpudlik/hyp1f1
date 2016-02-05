@@ -7,12 +7,24 @@ from __future__ import division
 import numpy as np
 from numpy import pi
 from numpy.lib.scimath import sqrt
-from scipy.special import gamma, rgamma, jv, gammaln
+from scipy.special import gamma, rgamma, jv, gammaln, poch
 
 import warnings
 
 tol = 1.0e-15
 BIGZ = 340
+
+# Coefficients of the polynomial g appearing in the hyperasymptotic
+# expansion of Paris (2013).
+PARIS_G = np.vstack((np.array([0,0,0,0,0,0,0,0, -1, 2/3]),
+                     np.array([0,0,0,0,0,0, -90, 270, -225, 46])/15,
+                     np.array([0,0,0,0,-756, 5040, -11760, 11340, -3969,
+                               230])/70,
+                     np.array([0,0, -3240, 37800, -170100, 370440, -397530,
+                               183330, -17781, -3226])/350,
+                     np.array([-1069200, 19245600, -141134400, 541870560,
+                               -1160830440, 1353607200, -743046480,
+                               88280280, 43924815, -4032746])/231000))
 
 
 def new_hyp1f1(a, b, z):
@@ -362,7 +374,7 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
         raise Exception("Shouldn't be able to get here!")
 
     if np.real(a) and np.real(b) and np.real(z) and (a < 0 or b < 0):
-        # gammaln and log will not give correct results for real negative
+        # gammaln will not give correct results for real negative
         # arguments, so the args must be cast to complex.
         c1 = np.real(np.exp(gammaln(b+0j) - gammaln(a+0j) + z))*z**(a - b)
     else:
@@ -387,6 +399,8 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
         A2 = -A2*(a + i - 1)*(a - b + i) / (z*i)
         current_term = np.abs(c1*A1 + c2*A2)
         if current_term > largest_term:
+            # Sometimes, the terms of the series increase initially.  We want
+            # to keep summing until we're past the first maximum.
             largest_term = current_term
         elif current_term > previous_term:
             # We've passed the smallest term of the series: adding more will
@@ -420,6 +434,7 @@ def paris_series(a, b, z, maxiters=200):
     theta = a - b
     if np.isreal(theta) and theta == np.floor(theta):
         if theta >= 0:
+            # The hypergeometric function is a polynomial in n
             if np.real(a) and np.real(b) and (b < 0 or a < 0):
                 c = np.exp(-x + gammaln(a + 0j) - gammaln(b + 0j))
                 c = np.real(c)
@@ -441,17 +456,17 @@ def paris_series(a, b, z, maxiters=200):
             A1 = 1
             S1 = 1
             n = int(-theta)
-            for i in xrange(n + 1):
+            for i in xrange(n):
                 A1 = A1*((a + i)*(1 + theta + k)/((k + 1)*x))
                 S1 += A1
 
-            return c*S1
+            return c*S1 + paris_exponential_series(a, b, z, i, maxiters)
 
     A1 = 1
     S1 = 1
     previous_term = np.inf
     largest_term = 0
-    for i in xrange(1, maxiters + 1):
+    for i in xrange(maxiters):
         A1 = A1*((a + i)*(1 + theta + i)/((i + 1)*x))
         current_term = np.abs(A1)
         if current_term > largest_term:
@@ -461,7 +476,44 @@ def paris_series(a, b, z, maxiters=200):
         S1 += A1
         previous_term = current_term
 
-    return c*S1
+    return c*S1 + paris_exponential_series(a, b, z, i, maxiters)
+
+def paris_exponential_series(a, b, z, i, maxiters):
+    """The exponentially small addition to the asymptotic expansion on the
+    negative real axis.
+
+    The argument `i` is the truncation index for the original series.
+
+    """
+    M = 5
+    theta = a - b
+    x = -z
+    if i < maxiters:
+        # The optimal truncation term has been determined.
+        v = a + i + theta + 1
+    else:
+        # We don't know how many terms are optimal exactly (it's more than the
+        # number of terms summed), so we'll use an approximation.
+        v = x
+
+    A = np.arange(M)
+    A = poch(1 - a, A)*poch(b - a, A)/gamma(A + 1)
+
+    first_sum = np.sum((-1)**np.arange(M) * A * x**(-np.arange(M)))
+    second_sum = 0
+    for idx in xrange(M):
+        B = sum((-2)**k*poch(0.5, k)*A[idx-k]*np.polyval(PARIS_G[k,:],v - x - (idx-k))*6**(-2*k)
+                for k in xrange(idx + 1))
+        second_sum += (-1)**idx * B * x**(-idx)
+
+    if np.real(a) and np.real(b) and (b < 0 or a < 0):
+        c = np.exp(gammaln(b + 0j) - gammaln(a + 0j))
+        c = np.real(c)
+    else:
+        c = np.exp(gammaln(b) - gammaln(a))
+
+    return c*x**theta*np.exp(-x)*(np.cos(np.pi*theta)*first_sum
+                                  - 2*np.sin(np.pi*theta)/np.sqrt(2*np.pi*x)*second_sum)
 
 
 def asymptotic_series_full(a, b, z, maxterms=200):
