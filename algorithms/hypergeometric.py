@@ -349,8 +349,7 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
 
     """
     if np.imag(z) == 0 and np.real(z) < 0:
-        # The series is not valid on the negative real axis.
-        return np.nan
+        return paris_series(a, b, z, maxiters)
 
     phi = np.angle(z)
     if np.imag(z) == 0:
@@ -401,6 +400,68 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
         previous_term = current_term
 
     return c1*S1 + c2*S2
+
+
+def paris_series(a, b, z, maxiters=200):
+    """The exponentially improved asymptotic expansion along the negative real
+    axis developed by Paris (2013).
+
+    At the moment, only the algebraic (i.e., not-improved) expansion is
+    implemented.
+
+    """
+    x = -z
+    if np.real(a) and np.real(b) and (b < 0 or b - a < 0):
+        c = np.exp(gammaln(b + 0j) - gammaln(b - a + 0j) - a*np.log(x))
+        c = np.real(c)
+    else:
+        c = np.exp(gammaln(b) - gammaln(b - a) - a*np.log(x))
+
+    theta = a - b
+    if np.isreal(theta) and theta == np.floor(theta):
+        if theta >= 0:
+            if np.real(a) and np.real(b) and (b < 0 or a < 0):
+                c = np.exp(-x + gammaln(a + 0j) - gammaln(b + 0j))
+                c = np.real(c)
+            else:
+                c = np.exp(-x + gammaln(a) - gammaln(b))
+            c = c * x**theta * (-1)**theta
+
+            A1 = 1
+            S1 = 1
+            n = int(theta)
+            for i in xrange(n + 1):
+                A1 = A1*((1 - a + i)*(n - i)/(x*(i + 1)))
+                S1 += A1
+
+            return c*S1
+        else:
+            # We use the same prefactor c as in the general case, but sum
+            # a fixed number of terms, not up to the smallest one.
+            A1 = 1
+            S1 = 1
+            n = int(-theta)
+            for i in xrange(n + 1):
+                A1 = A1*((a + i)*(1 + theta + k)/((k + 1)*x))
+                S1 += A1
+
+            return c*S1
+
+    A1 = 1
+    S1 = 1
+    previous_term = np.inf
+    largest_term = 0
+    for i in xrange(1, maxiters + 1):
+        A1 = A1*((a + i)*(1 + theta + i)/((i + 1)*x))
+        current_term = np.abs(A1)
+        if current_term > largest_term:
+            largest_term = current_term
+        elif current_term > previous_term:
+            break
+        S1 += A1
+        previous_term = current_term
+
+    return c*S1
 
 
 def asymptotic_series_full(a, b, z, maxterms=200):
