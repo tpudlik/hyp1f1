@@ -97,7 +97,8 @@ if __name__ == '__main__':
                                  "taylor_series_recur",
                                  "asymptotic_series_full",
                                  "taylor_series_ab_recur",
-                                 "rational_approximation"])
+                                 "rational_approximation",
+                                 "old_asymptotic_series"])
     args = parser.parse_args()
     func = hwrapper.get_function(args.func)
 

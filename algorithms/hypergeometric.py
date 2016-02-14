@@ -354,6 +354,42 @@ def single_fraction(a, b, z, maxiters=500, tol=tol):
     return zetan
 
 
+def old_asymptotic_series(a, b, z, maxiters=500, tol=tol):
+    """Compute hyp1f1 using an asymptotic series. This uses DLMF 13.7.2
+    and DLMF 13.2.4. Note that the series is divergent (as one would
+    expect); this can be seen by the ratio test.
+
+    """
+    # S1 is the first sum; the ith term is
+    # (1 - a)_i * (b - a)_i * z^(-s) / i!
+    # S2 is the second sum; the ith term is
+    # (a)_i * (a - b + 1)_i * (-z)^(-s) / i!
+    A1 = 1
+    S1 = A1
+    A2 = 1
+    S2 = A2
+    # Is 8 terms optimal? Not sure.
+    for i in range(1, 9):
+        A1 = A1*(i - a)*(b - a + i - 1) / (z*i)
+        S1 += A1
+        A2 = -A2*(a + i - 1)*(a - b + i) / (z*i)
+        S2 += A2
+
+    phi = np.angle(z)
+    if np.imag(z) == 0:
+        expfac = np.cos(pi*a)
+    elif phi > -0.5*pi and phi < 1.5*pi:
+        expfac = np.exp(1J*pi*a)
+    elif phi > -1.5*pi and phi <= -0.5*pi:
+        expfac = np.exp(-1J*pi*a)
+    else:
+        raise Exception("Shouldn't be able to get here!")
+
+    c1 = np.exp(z)*z**(a - b)*rgamma(a)
+    c2 = expfac*z**(-a)*rgamma(b - a)
+    return gamma(b)*(c1*S1 + c2*S2)
+
+
 def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     """Compute hyp1f1 using an asymptotic series. This uses DLMF 13.7.2
     and DLMF 13.2.4. Note that the series is divergent (as one would
