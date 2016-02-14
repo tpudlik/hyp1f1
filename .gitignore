@@ -1,5 +1,11 @@
+# Folders containing generated files
+reference/data/
+reference/plots/
+reference/signmag_plots/
+
 # Image files
 *.png
+Thumbs.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
