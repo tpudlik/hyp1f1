@@ -412,13 +412,14 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     if np.real(a) and np.real(b) and np.real(z) and (a < 0 or b < 0):
         # gammaln will not give correct results for real negative
         # arguments, so the args must be cast to complex.
-        c1 = np.real(np.exp(gammaln(b+0j) - gammaln(a+0j) + z))*z**(a - b)
+        c1 = np.real(np.exp(gammaln(b+0j) - gammaln(a+0j) + z
+                            + (a-b)*np.log(z)))
     else:
-        c1 = np.exp(gammaln(b) - gammaln(a) + z)*z**(a - b)
+        c1 = np.exp(gammaln(b) - gammaln(a) + z + (a-b)*np.log(z))
     if np.real(a) and np.real(b) and np.real(z) and (b - a < 0 or b < 0):
-        c2 = np.real(np.exp(gammaln(b + 0j) - gammaln(b - a + 0j))*z**(-a))
+        c2 = np.real(np.exp(gammaln(b + 0j) - gammaln(b - a + 0j) - a*np.log(z)))
     else:
-        c2 = np.exp(gammaln(b) - gammaln(b - a))*z**(-a)
+        c2 = np.exp(gammaln(b) - gammaln(b - a) - a*np.log(z))
 
     # S1 is the first sum; the ith term is
     # (1 - a)_i * (b - a)_i * z^(-s) / i!
