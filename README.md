@@ -19,6 +19,8 @@ or,
 
     python make_accuracy_plots.py new_hyp1f1
 
+The many (31) plots produced by this script can be combined using
+`combine_plots.py` (also in the reference folder).
 
 Diagnostic plots for the asymptotic series can be computed using
 `asymptotics/diagnostic_plot.py`.  These plots pertain to a
