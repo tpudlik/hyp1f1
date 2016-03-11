@@ -11,6 +11,8 @@ from scipy.special import gamma, rgamma, jv, gammaln, poch
 
 import warnings
 
+from hyp1f1_decimal import hyp1f1 as hyp1f1_decimal
+
 tol = 1.0e-15
 BIGZ = 340
 
@@ -21,7 +23,7 @@ PARIS_G = np.vstack((np.array([0,0,0,0,0,0,0,0, -1, 2/3]),
                      np.array([0,0,0,0,-756, 5040, -11760, 11340, -3969,
                                230])/70,
                      np.array([0,0, -3240, 37800, -170100, 370440, -397530,
-                               183330, -17781, -3226])/350,
+                               183330, -17781, -3626])/350,
                      np.array([-1069200, 19245600, -141134400, 541870560,
                                -1160830440, 1353607200, -743046480,
                                88280280, 43924815, -4032746])/231000))
@@ -453,13 +455,16 @@ def asymptotic_series(a, b, z, maxiters=500, tol=tol):
     return c1*S1 + c2*S2
 
 
-def paris_series(a, b, z, maxiters=200):
+def paris_series(a, b, z, maxiters=200, terms=0):
     """The exponentially improved asymptotic expansion along the negative real
     axis developed by Paris (2013).
 
     The exponentially improved expansion does not appear to improve the
     performance of the series in general, perhaps as a result of an
     implementation bug, so it has been commented out.
+
+    To sum a predetermined number of terms (rather than stopping at the
+    estimated optimal term), use the terms kwarg.
 
     """
     x = -z
@@ -483,7 +488,10 @@ def paris_series(a, b, z, maxiters=200):
 
             A1 = 1
             S1 = 1
-            n = int(theta)
+            if terms > 0:
+                n = terms
+            else:
+                n = int(theta)
             for i in xrange(n + 1):
                 A1 = A1*((1 - a + i)*(n - i)/(x*(i + 1)))
                 S1 += A1
@@ -494,24 +502,35 @@ def paris_series(a, b, z, maxiters=200):
             # a fixed number of terms, not up to the smallest one.
             A1 = 1
             S1 = 1
-            n = int(-theta)
+            if terms > 0:
+                n = terms
+            else:
+                n = int(-theta)
             for i in xrange(n):
                 A1 = A1*((a + i)*(1 + theta + i)/((i + 1)*x))
                 S1 += A1
 
             return c*S1  # + paris_exponential_series(a, b, z, i, maxiters)
 
+    if terms > 0:
+        n = terms
+        stop_early = False
+    else:
+        n = maxiters
+        stop_early = True
+
     A1 = 1
     S1 = 1
     previous_term = np.inf
     largest_term = 0
-    for i in xrange(maxiters):
+    for i in xrange(n):
         A1 = A1*((a + i)*(1 + theta + i)/((i + 1)*x))
         current_term = np.abs(A1)
-        if current_term > largest_term:
-            largest_term = current_term
-        elif current_term > previous_term:
-            break
+        if stop_early:
+            if current_term > largest_term:
+                largest_term = current_term
+            elif current_term > previous_term:
+                break
         S1 += A1
         previous_term = current_term
 
