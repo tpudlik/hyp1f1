@@ -98,7 +98,12 @@ if __name__ == '__main__':
                                  "asymptotic_series_full",
                                  "taylor_series_ab_recur",
                                  "rational_approximation",
-                                 "old_asymptotic_series"])
+                                 "old_asymptotic_series",
+                                 "hyp1f1_decimal",
+                                 "asymptotic_recur"])
+    parser.add_argument("--dataset",
+                        help="The number of the _single_ dataset to plot",
+                        default=False, type=str)
     args = parser.parse_args()
     func = hwrapper.get_function(args.func)
 
@@ -110,7 +115,14 @@ if __name__ == '__main__':
 
     if not os.path.isdir("plots"):
         os.mkdir("plots")
-    for data_fname in glob.glob("data/*.npz"):
+    
+
+    if args.dataset:
+        data_fnames = ["data/reference_data_{}.npz".format(args.dataset)]
+    else:
+        data_fnames = glob.glob("data/*.npz")
+
+    for data_fname in data_fnames:
         fig_fname = (args.func + "_" +
                      os.path.basename(data_fname).split('.')[0] + '.png')
         make_plot(data_fname, func, os.path.join("plots", fig_fname))
